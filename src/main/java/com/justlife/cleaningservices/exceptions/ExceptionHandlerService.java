@@ -14,6 +14,4 @@ public class ExceptionHandlerService {
         ValidationMessage validationMessage = new ValidationMessage(ex.getMessage());
         return new ResponseEntity<>(validationMessage, HttpStatus.BAD_REQUEST);
     }
-
-
 }

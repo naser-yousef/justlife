@@ -19,4 +19,6 @@ public class BookRequest {
     @Future
     private Date startDate;
 
+    private ClientInfo clientInfo;
+
 }

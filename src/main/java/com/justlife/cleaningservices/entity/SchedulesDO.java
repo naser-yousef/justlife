@@ -44,4 +44,8 @@ public class SchedulesDO implements HasId<Long> {
     @JoinColumn(name = "professional_id", nullable = false)
     private ProfessionalDO professional;
 
+    @ManyToOne
+    @JoinColumn(name = "appointment_id", nullable = false)
+    private AppointmentDO appointment;
+
 }

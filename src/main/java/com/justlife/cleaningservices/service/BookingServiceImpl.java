@@ -5,6 +5,7 @@ import static java.util.Collections.singletonList;
 import static org.apache.commons.lang3.ObjectUtils.isNotEmpty;
 import static org.springframework.util.CollectionUtils.isEmpty;
 
+import com.justlife.cleaningservices.dao.AppointmentDAO;
 import com.justlife.cleaningservices.dao.ProfessionalDAO;
 import com.justlife.cleaningservices.dao.ScheduleDAO;
 import com.justlife.cleaningservices.dto.AvailabilityCheck;
@@ -12,6 +13,7 @@ import com.justlife.cleaningservices.dto.AvailabilityResponse;
 import com.justlife.cleaningservices.dto.BookRequest;
 import com.justlife.cleaningservices.dto.BookingResponse;
 import com.justlife.cleaningservices.dto.Professional;
+import com.justlife.cleaningservices.entity.AppointmentDO;
 import com.justlife.cleaningservices.entity.ProfessionalDO;
 import com.justlife.cleaningservices.entity.SchedulesDO;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +38,9 @@ public class BookingServiceImpl extends AbstractService implements BookingServic
 
     @Autowired
     private ScheduleDAO schedulesDAO;
+
+    @Autowired
+    private AppointmentDAO appointmentDAO;
 
     private static final String NO_AVAILABLE_PROF_ERROR = "Cannot find # %s cleaners at the time %s";
 
@@ -85,10 +90,21 @@ public class BookingServiceImpl extends AbstractService implements BookingServic
         }
 
         List<ProfessionalDO> professionals = professionalDAO.findAllById(availableProfessionalIds);
-        professionals.stream()
-            .forEach(professionalDO -> createSchedule(bookRequest, professionalDO));
+        List<SchedulesDO> schedules = professionals.stream()
+            .map(professionalDO -> createSchedule(bookRequest, professionalDO))
+            .collect(Collectors.toList());
         professionalDAO.saveAll(professionals);
-        return new BookingResponse(extractIds(professionals));
+        AppointmentDO appointment = createAppointment(schedules);
+        AppointmentDO savedAppoint = appointmentDAO.save(appointment);
+
+        return BookingResponse.builder().professionalIds(extractIds(professionals)).appointmentId(savedAppoint.getId())
+            .build();
+    }
+
+    private AppointmentDO createAppointment(List<SchedulesDO> schedules) {
+        return AppointmentDO.builder().clientName("Ahmad").location("Jordan").mobile("0787879888")
+            .status(AppointmentStatus.PENDING.getStatusId()).schedules(schedules)
+            .build();
     }
 
     private List<Long> getAvailableProfessionalIds(BookRequest bookRequest) {
@@ -113,7 +129,7 @@ public class BookingServiceImpl extends AbstractService implements BookingServic
         return professionals.stream().collect(Collectors.groupingBy(Professional::getVehicleId, Collectors.toList()));
     }
 
-    private void createSchedule(BookRequest request, ProfessionalDO professional) {
+    private SchedulesDO createSchedule(BookRequest request, ProfessionalDO professional) {
         int hour = extractHour(request.getStartDate());
         SchedulesDO schedulesDO = SchedulesDO.builder()
             .professional(professional)
@@ -124,6 +140,8 @@ public class BookingServiceImpl extends AbstractService implements BookingServic
         } else {
             professional.setSchedules(singletonList(schedulesDO));
         }
+
+        return schedulesDO;
     }
 
     private int extractHour(Date date) {
@@ -135,13 +153,5 @@ public class BookingServiceImpl extends AbstractService implements BookingServic
     @Override
     public BookingResponse update(BookRequest bookRequest, Long id) {
         return null;
-    }
-
-    //validate if last time < 22:00
-    private Date getEndDate(Date startDate, Integer duration) {
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTime(startDate);
-        calendar.add(Calendar.HOUR, duration);
-        return calendar.getTime();
     }
 }
